@@ -1,5 +1,7 @@
 """Tests for conte module."""
 
+import warnings
+
 import pytest
 
 from oslo.conte import is_conte_format, parse_conte
@@ -10,10 +12,12 @@ TEST_CONTE_MARKDOWN = """# テストタイトル
 ## シーン 1
 **映像**: 東京タワーの夜景
 **ナレーション**: テスト用のナレーションです。
+**数字**: 333m
 
 ## シーン 2
 **映像**: 渋谷のスクランブル交差点
 **ナレーション**: 二つ目のシーンのテキストです。
+**数字**: 1日30万人
 """
 
 
@@ -117,10 +121,12 @@ def test_parse_conte_ignores_non_scene_h2_sections():
 ## シーン 1
 **映像**: 東京タワー
 **ナレーション**: 最初のシーンです。
+**数字**: 333m
 
 ## シーン 2
 **映像**: 富士山
 **ナレーション**: 最後のシーンです。
+**数字**: 3776m
 
 ## 説明
 これは説明欄のテキストです。
@@ -131,3 +137,35 @@ def test_parse_conte_ignores_non_scene_h2_sections():
     assert scenes[1].narration_text == "最後のシーンです。"
     assert "説明" not in scenes[1].narration_text
     assert "ハッシュタグ" not in scenes[1].narration_text
+
+
+def test_parse_conte_stat_overlay():
+    """Scenes with **数字**: field should have stat_overlay set."""
+    scenes = parse_conte(TEST_CONTE_MARKDOWN)
+    assert scenes[0].stat_overlay == "333m"
+    assert scenes[1].stat_overlay == "1日30万人"
+
+
+def test_parse_conte_stat_overlay_missing_warns():
+    """Missing **数字**: field should emit a warning."""
+    text = """## シーン 1
+**映像**: 海辺の夕焼け
+**ナレーション**: 波の音が静かに響きます。
+"""
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        scene = parse_conte(text)[0]
+        assert scene.stat_overlay is None
+        assert len(w) == 1
+        assert "**数字** field missing in scene 1" in str(w[0].message)
+
+
+def test_parse_conte_stat_overlay_with_full_width_colon():
+    """**数字**： (full-width colon) should also be parsed."""
+    text = """## シーン 1
+**映像**: テスト
+**ナレーション**: テストです。
+**数字**： 100万人
+"""
+    scene = parse_conte(text)[0]
+    assert scene.stat_overlay == "100万人"

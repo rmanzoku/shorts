@@ -122,6 +122,7 @@ class Scene:
     image_prompt: str
     tts_text: str = ""
     words: list[str] = field(default_factory=list)
+    stat_overlay: str | None = None
 
     def __post_init__(self):
         if not self.tts_text:
