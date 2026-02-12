@@ -120,9 +120,12 @@ class Scene:
     index: int
     narration_text: str
     image_prompt: str
+    tts_text: str = ""
     words: list[str] = field(default_factory=list)
 
     def __post_init__(self):
+        if not self.tts_text:
+            self.tts_text = self.narration_text
         if not self.words:
             self.words = _split_for_subtitles(self.narration_text)
 
@@ -198,21 +201,25 @@ def _merge_short_segments(segments: list[str]) -> list[str]:
     return merged
 
 
-def generate_image_prompt(narration_text: str) -> str:
+def generate_image_prompt(
+    narration_text: str, image_style_prefix: str | None = None
+) -> str:
     """Generate a visual scene description for image generation.
 
     Avoids including narration text directly to prevent
     the model from rendering garbled text in the image.
     """
+    prefix = image_style_prefix or IMAGE_STYLE_PREFIX
     content = narration_text[:300]
     return (
-        "Cinematic vertical photograph, vibrant colors, high detail, "
-        "dramatic lighting. Do not include any text, words, or letters in the image. "
+        f"{prefix}Do not include any text, words, or letters in the image. "
         f"Visual scene inspired by: {content}"
     )
 
 
-def split_into_scenes(text: str, max_duration: float = 90.0) -> list[Scene]:
+def split_into_scenes(
+    text: str, max_duration: float = 90.0, image_style_prefix: str | None = None
+) -> list[Scene]:
     """Split input text into scenes suitable for video generation.
 
     Strategy:
@@ -264,7 +271,7 @@ def split_into_scenes(text: str, max_duration: float = 90.0) -> list[Scene]:
             Scene(
                 index=i,
                 narration_text=segment,
-                image_prompt=generate_image_prompt(segment),
+                image_prompt=generate_image_prompt(segment, image_style_prefix),
             )
         )
 

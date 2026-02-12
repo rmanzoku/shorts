@@ -5,6 +5,7 @@ import re
 from oslo.text_processor import IMAGE_STYLE_PREFIX, Scene, generate_image_prompt
 
 _SCENE_HEADER_PATTERN = re.compile(r"^##\s*(?:シーン|Scene)\b.*$", re.MULTILINE)
+_ANY_H2_PATTERN = re.compile(r"^##\s", re.MULTILINE)
 _VISUAL_PATTERN = re.compile(r"\*\*映像\*\*\s*[:：]\s*(.+?)(?=\n\*\*|$)", re.DOTALL)
 _NARRATION_PATTERN = re.compile(
     r"\*\*ナレーション\*\*\s*[:：]\s*(.+?)(?=\n\*\*|$)",
@@ -25,25 +26,34 @@ def is_conte_format(text: str) -> bool:
     return bool(_SCENE_HEADER_PATTERN.search(text))
 
 
-def parse_conte(text: str) -> list[Scene]:
+def parse_conte(text: str, image_style_prefix: str | None = None) -> list[Scene]:
     """Parse conte markdown and return a list of Scene objects."""
+    style_prefix = image_style_prefix or IMAGE_STYLE_PREFIX
     matches = list(_SCENE_HEADER_PATTERN.finditer(text))
     if not matches:
         raise ValueError("No scenes found in conte markdown")
 
+    # Use all ## headers as block boundaries (not just scene headers)
+    all_h2_starts = [m.start() for m in _ANY_H2_PATTERN.finditer(text)]
+
     scenes: list[Scene] = []
     for i, match in enumerate(matches):
         start = match.end()
-        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        # Find the next ## header of any kind after this scene header
+        end = len(text)
+        for h2_start in all_h2_starts:
+            if h2_start > match.start():
+                end = h2_start
+                break
         block = text[start:end].strip()
 
         narration_text = _extract_required_narration(block, i + 1)
         visual_text = _extract_visual(block)
 
         if visual_text:
-            image_prompt = f"{IMAGE_STYLE_PREFIX}{visual_text} {_NO_TEXT_SUFFIX}"
+            image_prompt = f"{style_prefix}{visual_text} {_NO_TEXT_SUFFIX}"
         else:
-            image_prompt = generate_image_prompt(narration_text)
+            image_prompt = generate_image_prompt(narration_text, image_style_prefix)
 
         scenes.append(
             Scene(

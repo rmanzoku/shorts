@@ -22,13 +22,13 @@ SUBTITLE_STROKE_COLOR = "black"
 SUBTITLE_STROKE_WIDTH = 3
 SUBTITLE_BG_COLOR = (0, 0, 0, 153)  # Semi-transparent black (60% opacity)
 SUBTITLE_MARGIN = (20, 15)  # Horizontal, vertical padding
-SUBTITLE_Y_POSITION = 0.60  # 60% from top (slightly below center)
+SUBTITLE_Y_POSITION = 0.45  # 45% from top (center, clear of TikTok bottom UI)
 CROSSFADE_DURATION = 0.5
 TITLE_FONT_SIZE = 85
 TITLE_COLOR = "white"
 TITLE_STROKE_WIDTH = 4
 TITLE_BG_COLOR = (230, 180, 0, 230)  # Near-opaque yellow/orange bar
-TITLE_Y_POSITION = 0.05  # 5% from top
+TITLE_Y_POSITION = 0.15  # 15% from top (below TikTok header)
 
 
 def _find_cjk_font() -> str | None:
@@ -113,7 +113,7 @@ def compose_video(
             "stroke_color": SUBTITLE_STROKE_COLOR,
             "stroke_width": SUBTITLE_STROKE_WIDTH,
             "method": "caption",
-            "size": (config.width - 100, None),
+            "size": (config.width - 200, None),
             "margin": SUBTITLE_MARGIN,
             "text_align": "center",
         }

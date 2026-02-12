@@ -87,3 +87,47 @@ def test_parse_conte_no_scenes():
     text = "**ナレーション**: シーンヘッダーがありません。"
     with pytest.raises(ValueError, match="No scenes found in conte markdown"):
         parse_conte(text)
+
+
+def test_parse_conte_custom_style_prefix():
+    custom_prefix = "Dark, dramatic, professional. "
+    text = """## シーン 1
+**映像**: 国会議事堂
+**ナレーション**: 本日の議題を解説します。
+"""
+    scene = parse_conte(text, image_style_prefix=custom_prefix)[0]
+    assert scene.image_prompt.startswith(custom_prefix)
+    assert "国会議事堂" in scene.image_prompt
+    assert not scene.image_prompt.startswith(IMAGE_STYLE_PREFIX)
+
+
+def test_parse_conte_custom_style_prefix_fallback():
+    custom_prefix = "Custom style. "
+    text = """## シーン 1
+**ナレーション**: 映像指定なしのカスタムスタイル。
+"""
+    scene = parse_conte(text, image_style_prefix=custom_prefix)[0]
+    assert scene.image_prompt.startswith(custom_prefix)
+
+
+def test_parse_conte_ignores_non_scene_h2_sections():
+    """## 説明 etc. should not be included in the last scene's narration."""
+    text = """# タイトル
+
+## シーン 1
+**映像**: 東京タワー
+**ナレーション**: 最初のシーンです。
+
+## シーン 2
+**映像**: 富士山
+**ナレーション**: 最後のシーンです。
+
+## 説明
+これは説明欄のテキストです。
+ハッシュタグやメタデータが入ります。
+"""
+    scenes = parse_conte(text)
+    assert len(scenes) == 2
+    assert scenes[1].narration_text == "最後のシーンです。"
+    assert "説明" not in scenes[1].narration_text
+    assert "ハッシュタグ" not in scenes[1].narration_text
