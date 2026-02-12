@@ -1,6 +1,7 @@
 """Conte (storyboard) Markdown parser."""
 
 import re
+import warnings
 
 from oslo.text_processor import IMAGE_STYLE_PREFIX, Scene, generate_image_prompt
 
@@ -9,6 +10,10 @@ _ANY_H2_PATTERN = re.compile(r"^##\s", re.MULTILINE)
 _VISUAL_PATTERN = re.compile(r"\*\*映像\*\*\s*[:：]\s*(.+?)(?=\n\*\*|$)", re.DOTALL)
 _NARRATION_PATTERN = re.compile(
     r"\*\*ナレーション\*\*\s*[:：]\s*(.+?)(?=\n\*\*|$)",
+    re.DOTALL,
+)
+_STAT_PATTERN = re.compile(
+    r"\*\*数字\*\*\s*[:：]\s*(.+?)(?=\n\*\*|$)",
     re.DOTALL,
 )
 _TITLE_PATTERN = re.compile(r"^#\s+(.+)$", re.MULTILINE)
@@ -49,6 +54,13 @@ def parse_conte(text: str, image_style_prefix: str | None = None) -> list[Scene]
 
         narration_text = _extract_required_narration(block, i + 1)
         visual_text = _extract_visual(block)
+        stat_overlay = _extract_stat_overlay(block)
+
+        if stat_overlay is None:
+            warnings.warn(
+                f"**数字** field missing in scene {i + 1}",
+                stacklevel=2,
+            )
 
         if visual_text:
             image_prompt = f"{style_prefix}{visual_text} {_NO_TEXT_SUFFIX}"
@@ -60,6 +72,7 @@ def parse_conte(text: str, image_style_prefix: str | None = None) -> list[Scene]
                 index=i,
                 narration_text=narration_text,
                 image_prompt=image_prompt,
+                stat_overlay=stat_overlay,
             )
         )
 
@@ -67,6 +80,15 @@ def parse_conte(text: str, image_style_prefix: str | None = None) -> list[Scene]
         raise ValueError("No scenes found in conte markdown")
 
     return scenes
+
+
+def _extract_stat_overlay(block: str) -> str | None:
+    """Extract stat overlay text from a single scene block."""
+    match = _STAT_PATTERN.search(block)
+    if not match:
+        return None
+    stat_text = match.group(1).strip()
+    return stat_text or None
 
 
 def _extract_visual(block: str) -> str | None:

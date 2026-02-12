@@ -22,8 +22,18 @@ SUBTITLE_STROKE_COLOR = "black"
 SUBTITLE_STROKE_WIDTH = 3
 SUBTITLE_BG_COLOR = (0, 0, 0, 153)  # Semi-transparent black (60% opacity)
 SUBTITLE_MARGIN = (20, 15)  # Horizontal, vertical padding
-SUBTITLE_Y_POSITION = 0.45  # 45% from top (center, clear of TikTok bottom UI)
+SUBTITLE_Y_POSITION = 0.42  # 42% from top (clear of TikTok bottom UI)
 CROSSFADE_DURATION = 0.5
+HOOK_FONT_SIZE = 120
+HOOK_DURATION = 1.5  # seconds
+HOOK_BG_COLOR = (0, 0, 0, 255)  # Solid black
+STAT_FONT_SIZE = 120
+STAT_COLOR = "white"
+STAT_STROKE_COLOR = "black"
+STAT_STROKE_WIDTH = 5
+STAT_BG_COLOR = (0, 0, 0, 180)  # Semi-transparent black
+STAT_Y_POSITION = 0.30  # 30% from top (above subtitles)
+ZOOM_FACTOR = 0.12  # 12% zoom range for Ken Burns effect
 TITLE_FONT_SIZE = 85
 TITLE_COLOR = "white"
 TITLE_STROKE_WIDTH = 4
@@ -57,10 +67,13 @@ def compose_video(
     output_path: Path,
     config: VideoConfig,
     title: str | None = None,
+    hook_text: str | None = None,
+    stat_overlays: list[str | None] | None = None,
 ) -> Path:
     """Compose the final video from images, audio, and subtitles.
 
     Pipeline:
+    0. (Optional) Create hook frame with title text
     1. Create ImageClip per scene with Ken Burns zoom effect
     2. Concatenate with crossfade transitions
     3. Concatenate audio track
@@ -68,16 +81,59 @@ def compose_video(
     5. Write MP4 (H.264 + AAC)
     """
     size = (config.width, config.height)
+    cjk_font = _find_cjk_font()
+
+    # Step 0: Create hook frame (text-only opening slide)
+    hook_clip = None
+    if hook_text:
+        hook_kwargs = {
+            "text": hook_text,
+            "font_size": HOOK_FONT_SIZE,
+            "color": "white",
+            "bg_color": HOOK_BG_COLOR,
+            "method": "caption",
+            "size": (config.width - 120, None),
+            "margin": (40, 30),
+            "text_align": "center",
+        }
+        if cjk_font:
+            hook_kwargs["font"] = cjk_font
+        hook_clip = (
+            TextClip(**hook_kwargs)
+            .with_duration(HOOK_DURATION)
+            .with_position("center")
+        )
+        # Create a black background for the hook frame
+        hook_bg = (
+            ImageClip(
+                TextClip(
+                    text=" ",
+                    font_size=1,
+                    color="black",
+                    bg_color=HOOK_BG_COLOR,
+                    size=size,
+                ).get_frame(0)
+            )
+            .with_duration(HOOK_DURATION)
+        )
+        hook_clip = CompositeVideoClip([hook_bg, hook_clip], size=size)
 
     # Step 1: Create scene clips with Ken Burns effect
     scene_clips = []
-    for image_path, audio_path in zip(image_paths, audio_paths):
+    for i, (image_path, audio_path) in enumerate(zip(image_paths, audio_paths)):
         audio = AudioSegment.from_mp3(str(audio_path))
         duration = audio.duration_seconds
 
         clip = ImageClip(str(image_path)).with_duration(duration).resized(size)
-        # Subtle zoom: 1.0x to 1.05x over the clip duration
-        clip = clip.with_effects([vfx.Resize(lambda t, d=duration: 1 + 0.05 * (t / d))])
+        # Alternating zoom: even scenes zoom in, odd scenes zoom out
+        if i % 2 == 0:
+            clip = clip.with_effects(
+                [vfx.Resize(lambda t, d=duration: 1 + ZOOM_FACTOR * (t / d))]
+            )
+        else:
+            clip = clip.with_effects(
+                [vfx.Resize(lambda t, d=duration: 1 + ZOOM_FACTOR * (1 - t / d))]
+            )
         scene_clips.append(clip)
 
     # Step 2: Concatenate scenes with crossfade
@@ -98,11 +154,29 @@ def compose_video(
     # Step 3: Concatenate audio and sync video duration
     audio_clips = [AudioFileClip(str(p)) for p in audio_paths]
     full_audio = concatenate_audioclips(audio_clips)
+
+    # If hook frame exists, prepend it before the main video
+    hook_duration = 0.0
+    if hook_clip is not None:
+        hook_duration = HOOK_DURATION
+        video = video.with_start(hook_duration)
+        video = CompositeVideoClip([hook_clip, video], size=size)
+        # Pad audio with silence for the hook frame
+        silence = AudioSegment.silent(duration=int(hook_duration * 1000))
+        first_audio_raw = AudioSegment.from_mp3(str(audio_paths[0]))
+        padded = silence + first_audio_raw
+        import tempfile
+
+        padded_path = Path(tempfile.mktemp(suffix=".mp3"))
+        padded.export(str(padded_path), format="mp3")
+        padded_audio_clip = AudioFileClip(str(padded_path))
+        remaining_clips = [AudioFileClip(str(p)) for p in audio_paths[1:]]
+        full_audio = concatenate_audioclips([padded_audio_clip] + remaining_clips)
+        audio_clips = [padded_audio_clip] + remaining_clips
     video = video.with_duration(full_audio.duration)
     video = video.with_audio(full_audio)
 
     # Step 4: Overlay subtitles with semi-transparent background
-    cjk_font = _find_cjk_font()
 
     def make_subtitle_clip(text):
         kwargs = {
@@ -132,7 +206,50 @@ def compose_video(
 
     layers = [video, subtitles]
 
-    # Step 4.5: Overlay title at the top of the screen
+    # Step 4.5: Overlay stat numbers per scene
+    if stat_overlays:
+        scene_start = hook_duration
+        for idx, (audio_path, stat_text) in enumerate(
+            zip(audio_paths, stat_overlays)
+        ):
+            if not stat_text:
+                audio_seg = AudioSegment.from_mp3(str(audio_path))
+                scene_start += audio_seg.duration_seconds
+                if idx < len(audio_paths) - 1:
+                    scene_start -= CROSSFADE_DURATION
+                continue
+            audio_seg = AudioSegment.from_mp3(str(audio_path))
+            scene_dur = audio_seg.duration_seconds
+            stat_kwargs = {
+                "text": stat_text,
+                "font_size": STAT_FONT_SIZE,
+                "color": STAT_COLOR,
+                "bg_color": STAT_BG_COLOR,
+                "stroke_color": STAT_STROKE_COLOR,
+                "stroke_width": STAT_STROKE_WIDTH,
+                "method": "caption",
+                "size": (config.width - 160, None),
+                "margin": (30, 20),
+                "text_align": "center",
+            }
+            if cjk_font:
+                stat_kwargs["font"] = cjk_font
+            # Display stat in the middle 60% of the scene
+            fade_in_start = scene_start + scene_dur * 0.2
+            stat_display_dur = scene_dur * 0.6
+            stat_clip = (
+                TextClip(**stat_kwargs)
+                .with_duration(stat_display_dur)
+                .with_start(fade_in_start)
+                .with_position(("center", STAT_Y_POSITION), relative=True)
+                .with_effects([vfx.CrossFadeIn(0.3)])
+            )
+            layers.append(stat_clip)
+            scene_start += scene_dur
+            if idx < len(audio_paths) - 1:
+                scene_start -= CROSSFADE_DURATION
+
+    # Step 4.6: Overlay title at the top of the screen
     if title:
         title_kwargs = {
             "text": title,

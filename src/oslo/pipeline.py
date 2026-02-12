@@ -88,6 +88,7 @@ def generate_video(
         # Stage 5: Compose final video
         if verbose:
             click.echo("Composing video...")
+        stat_overlays = [s.stat_overlay for s in scenes]
         compose_video(
             image_paths=image_paths,
             audio_paths=audio_paths,
@@ -95,6 +96,8 @@ def generate_video(
             output_path=output_file,
             config=config.video,
             title=title,
+            hook_text=title,
+            stat_overlays=stat_overlays,
         )
 
         return output_file

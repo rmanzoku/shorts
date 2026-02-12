@@ -33,7 +33,7 @@ defaults:
 
 generation:
   voice: nova
-  speed: 1.0
+  speed: 1.1
   image_quality: medium
   image_style_prefix: "Professional news-style vertical composition, clean layout, serious tone, muted color palette with accent colors, high contrast, subtle dramatic lighting. "
   max_duration: 90.0
