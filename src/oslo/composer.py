@@ -24,6 +24,11 @@ SUBTITLE_BG_COLOR = (0, 0, 0, 153)  # Semi-transparent black (60% opacity)
 SUBTITLE_MARGIN = (20, 15)  # Horizontal, vertical padding
 SUBTITLE_Y_POSITION = 0.60  # 60% from top (slightly below center)
 CROSSFADE_DURATION = 0.5
+TITLE_FONT_SIZE = 85
+TITLE_COLOR = "white"
+TITLE_STROKE_WIDTH = 4
+TITLE_BG_COLOR = (230, 180, 0, 230)  # Near-opaque yellow/orange bar
+TITLE_Y_POSITION = 0.05  # 5% from top
 
 
 def _find_cjk_font() -> str | None:
@@ -51,6 +56,7 @@ def compose_video(
     srt_path: Path,
     output_path: Path,
     config: VideoConfig,
+    title: str | None = None,
 ) -> Path:
     """Compose the final video from images, audio, and subtitles.
 
@@ -124,7 +130,32 @@ def compose_video(
         ("center", SUBTITLE_Y_POSITION), relative=True
     )
 
-    final = CompositeVideoClip([video, subtitles], size=size)
+    layers = [video, subtitles]
+
+    # Step 4.5: Overlay title at the top of the screen
+    if title:
+        title_kwargs = {
+            "text": title,
+            "font_size": TITLE_FONT_SIZE,
+            "color": TITLE_COLOR,
+            "bg_color": TITLE_BG_COLOR,
+            "stroke_color": SUBTITLE_STROKE_COLOR,
+            "stroke_width": TITLE_STROKE_WIDTH,
+            "method": "caption",
+            "size": (config.width - 80, None),
+            "margin": SUBTITLE_MARGIN,
+            "text_align": "center",
+        }
+        if cjk_font:
+            title_kwargs["font"] = cjk_font
+        title_clip = (
+            TextClip(**title_kwargs)
+            .with_duration(video.duration)
+            .with_position(("center", TITLE_Y_POSITION), relative=True)
+        )
+        layers.append(title_clip)
+
+    final = CompositeVideoClip(layers, size=size)
 
     # Step 5: Write output
     final.write_videofile(

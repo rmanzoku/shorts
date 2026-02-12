@@ -10,7 +10,14 @@ _NARRATION_PATTERN = re.compile(
     r"\*\*ナレーション\*\*\s*[:：]\s*(.+?)(?=\n\*\*|$)",
     re.DOTALL,
 )
+_TITLE_PATTERN = re.compile(r"^#\s+(.+)$", re.MULTILINE)
 _NO_TEXT_SUFFIX = "Do not include any text, words, or letters in the image."
+
+
+def parse_conte_title(text: str) -> str | None:
+    """Extract the title (first H1 heading) from conte markdown."""
+    match = _TITLE_PATTERN.search(text)
+    return match.group(1).strip() if match else None
 
 
 def is_conte_format(text: str) -> bool:
