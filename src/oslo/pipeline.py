@@ -10,6 +10,7 @@ from oslo.composer import compose_video
 from oslo.config import AppConfig
 from oslo.conte import is_conte_format, parse_conte, parse_conte_title
 from oslo.image_gen import ImageGenerator
+from oslo.readings import apply_readings, load_readings
 from oslo.subtitles import generate_subtitles, write_srt
 from oslo.text_processor import split_into_scenes
 from oslo.tts import TTSClient
@@ -47,6 +48,17 @@ def generate_video(
             )
         if verbose:
             click.echo(f"  Created {len(scenes)} scenes")
+
+        # Apply TTS reading dictionary
+        readings_path = input_file.parent / "readings.yml"
+        if not readings_path.exists():
+            readings_path = Path.cwd() / "readings.yml"
+        readings = load_readings(readings_path)
+        if readings:
+            if verbose:
+                click.echo(f"  Applied {len(readings)} reading(s) for TTS")
+            for scene in scenes:
+                scene.tts_text = apply_readings(scene.narration_text, readings)
 
         # Confirm before API calls
         if not skip_confirm:

@@ -120,9 +120,12 @@ class Scene:
     index: int
     narration_text: str
     image_prompt: str
+    tts_text: str = ""
     words: list[str] = field(default_factory=list)
 
     def __post_init__(self):
+        if not self.tts_text:
+            self.tts_text = self.narration_text
         if not self.words:
             self.words = _split_for_subtitles(self.narration_text)
 

@@ -108,3 +108,26 @@ def test_parse_conte_custom_style_prefix_fallback():
 """
     scene = parse_conte(text, image_style_prefix=custom_prefix)[0]
     assert scene.image_prompt.startswith(custom_prefix)
+
+
+def test_parse_conte_ignores_non_scene_h2_sections():
+    """## 説明 etc. should not be included in the last scene's narration."""
+    text = """# タイトル
+
+## シーン 1
+**映像**: 東京タワー
+**ナレーション**: 最初のシーンです。
+
+## シーン 2
+**映像**: 富士山
+**ナレーション**: 最後のシーンです。
+
+## 説明
+これは説明欄のテキストです。
+ハッシュタグやメタデータが入ります。
+"""
+    scenes = parse_conte(text)
+    assert len(scenes) == 2
+    assert scenes[1].narration_text == "最後のシーンです。"
+    assert "説明" not in scenes[1].narration_text
+    assert "ハッシュタグ" not in scenes[1].narration_text

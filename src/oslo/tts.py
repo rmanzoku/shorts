@@ -37,6 +37,6 @@ class TTSClient:
             if verbose:
                 click.echo(f"  Generating audio for scene {scene.index + 1}/{len(scenes)}...")
             audio_path = temp_dir / f"scene_{scene.index:03d}.mp3"
-            self.generate_speech(scene.narration_text, audio_path)
+            self.generate_speech(scene.tts_text, audio_path)
             audio_paths.append(audio_path)
         return audio_paths
