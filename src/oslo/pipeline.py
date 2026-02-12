@@ -1,0 +1,87 @@
+"""Pipeline orchestrator: text -> video."""
+
+import shutil
+import tempfile
+from pathlib import Path
+
+import click
+
+from oslo.composer import compose_video
+from oslo.config import AppConfig
+from oslo.conte import is_conte_format, parse_conte
+from oslo.image_gen import ImageGenerator
+from oslo.subtitles import generate_subtitles, write_srt
+from oslo.text_processor import split_into_scenes
+from oslo.tts import TTSClient
+
+
+def generate_video(
+    input_file: Path,
+    output_file: Path,
+    config: AppConfig,
+    keep_temp: bool = False,
+    verbose: bool = False,
+    skip_confirm: bool = False,
+) -> Path:
+    """Full pipeline: text -> scenes -> audio + images + subtitles -> video."""
+    text = input_file.read_text(encoding="utf-8").strip()
+    if not text:
+        raise click.ClickException("Input file is empty")
+
+    temp_dir = Path(tempfile.mkdtemp(prefix="oslo_"))
+    try:
+        # Stage 1: Parse conte or split text into scenes
+        if input_file.suffix.lower() == ".md" or is_conte_format(text):
+            if verbose:
+                click.echo("Parsing conte...")
+            scenes = parse_conte(text)
+        else:
+            if verbose:
+                click.echo("Splitting text into scenes...")
+            scenes = split_into_scenes(text, max_duration=config.video.max_duration)
+        if verbose:
+            click.echo(f"  Created {len(scenes)} scenes")
+
+        # Confirm before API calls
+        if not skip_confirm:
+            click.echo(f"\n  Scenes: {len(scenes)}")
+            click.echo(f"  API calls: {len(scenes)} TTS + {len(scenes)} image generation")
+            if not click.confirm("  Proceed with API calls?", default=True):
+                raise click.Abort()
+
+        # Stage 2: Generate narration audio
+        if verbose:
+            click.echo("Generating narration audio...")
+        tts_client = TTSClient(config.openai_api_key, config.tts)
+        audio_paths = tts_client.generate_all_scenes(scenes, temp_dir, verbose=verbose)
+
+        # Stage 3: Generate background images
+        if verbose:
+            click.echo("Generating background images...")
+        image_gen = ImageGenerator(config.openai_api_key, config.image_gen, config.video)
+        image_paths = image_gen.generate_all_scenes(scenes, temp_dir, verbose=verbose)
+
+        # Stage 4: Generate subtitles
+        if verbose:
+            click.echo("Generating subtitles...")
+        subtitle_entries = generate_subtitles(scenes, audio_paths)
+        srt_path = write_srt(subtitle_entries, temp_dir / "subtitles.srt")
+
+        # Stage 5: Compose final video
+        if verbose:
+            click.echo("Composing video...")
+        compose_video(
+            image_paths=image_paths,
+            audio_paths=audio_paths,
+            srt_path=srt_path,
+            output_path=output_file,
+            config=config.video,
+        )
+
+        return output_file
+
+    finally:
+        if keep_temp:
+            click.echo(f"Temporary files kept at: {temp_dir}")
+        else:
+            shutil.rmtree(temp_dir, ignore_errors=True)
