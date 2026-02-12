@@ -18,3 +18,4 @@ env/
 output/
 
 .context/
+.DS_Store

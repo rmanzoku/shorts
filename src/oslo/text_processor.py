@@ -58,7 +58,8 @@ def _split_for_subtitles(text: str) -> list[str]:
         parts = re.split(r"(?<=[。、！？，])", clean)
         parts = [p for p in parts if p]
         # Re-split chunks that are too long at natural break points
-        max_chars = 18
+        max_chars = 20
+        merge_max = 22
         chunks = []
         for part in parts:
             while len(part) > max_chars:
@@ -68,8 +69,7 @@ def _split_for_subtitles(text: str) -> list[str]:
             if part:
                 chunks.append(part)
         # Merge very short chunks (3 chars or less) into previous
-        # Allow up to ~2 display lines (22 chars) to prevent orphaned fragments
-        merge_max = max_chars + 4
+        # Cap at 2 display lines (~22 chars) to prevent orphaned fragments
         if len(chunks) > 1:
             merged = [chunks[0]]
             for c in chunks[1:]:
@@ -87,7 +87,10 @@ def _split_for_subtitles(text: str) -> list[str]:
 _JP_BREAK_CHARS = set("はがをにでともへのてただるいす")
 
 # Never break immediately before these characters
-_NO_BREAK_BEFORE = set("ーッャュョァィゥェォ")
+_NO_BREAK_BEFORE = set("ーッャュョァィゥェォ」）")
+
+# Character pairs (prev, next) that should not be split across chunks
+_NO_BREAK_PAIRS = {("す", "る"), ("い", "う"), ("で", "し")}
 
 
 def _find_jp_break(text: str, max_pos: int) -> int:
@@ -100,8 +103,11 @@ def _find_jp_break(text: str, max_pos: int) -> int:
     min_search = max(max_pos * 2 // 5, 4)
     for i in range(max_pos, min_search, -1):
         if text[i - 1] in _JP_BREAK_CHARS:
-            # Don't break if next char is a prolonged sound or small kana
+            # Don't break if next char is a prolonged sound, small kana, or closing bracket
             if i < len(text) and text[i] in _NO_BREAK_BEFORE:
+                continue
+            # Don't break between tightly-bound character pairs
+            if i < len(text) and (text[i - 1], text[i]) in _NO_BREAK_PAIRS:
                 continue
             return i
     return max_pos
