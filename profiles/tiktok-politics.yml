@@ -51,6 +51,25 @@ content:
     - "視聴者の「なぜ？」に答える構成にする"
     - "冒頭3秒で話題を提示し興味を引く"
 
+# 成長目標（AIがコンテンツ戦略の判断に使用）
+growth:
+  current_phase: 1  # 1: 基盤構築(~1000), 2: 加速(1000~5000), 3: 収益化(5000~10000)
+  target: creator_rewards_program  # フォロワー1万 + 月間10万再生
+  posting_frequency: "週3〜5本"
+  posting_time: "平日18〜22時、土日13〜21時"
+  max_posts_per_day: 1  # mass-produced判定回避
+
+# 説明文テンプレート（コンテの ## 説明 セクション生成用）
+description_template: |
+  {summary}
+
+  📌 目次
+  {timestamps}
+
+  🤖 この動画は映像・音声・字幕すべてAIで生成しています
+
+  {hashtags}
+
 credentials:
   env_prefix: TIKTOK_POLITICS
   required_vars:
