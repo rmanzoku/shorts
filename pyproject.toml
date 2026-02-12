@@ -16,6 +16,7 @@ dependencies = [
     "pydub>=0.25",
     "audioop-lts>=0.2; python_version>='3.13'",
     "python-dotenv>=1.0",
+    "pyyaml>=6.0",
 ]
 
 [project.scripts]

@@ -1,0 +1,58 @@
+# Oslo SNS Profile: TikTok Political Commentary
+# Account: https://www.tiktok.com/@political_1984
+# Credentials stored in .env (see .env.example)
+
+name: tiktok-politics
+platform: tiktok
+display_name: "AI政治ニュース解説"
+description: "AIが日本の政治・時事ニュースを90秒で中立的に解説するショート動画チャンネル"
+language: ja
+
+# TikTok account settings
+account:
+  username: political_1984
+  bio: "AIが日本の政治・時事ニュースを90秒で解説｜映像・音声・字幕すべてAI生成｜中立・客観的"
+
+defaults:
+  privacy_level: PUBLIC_TO_EVERYONE
+  disable_duet: false
+  disable_stitch: false
+  disable_comment: false
+  is_aigc: true
+  brand_content_toggle: false
+  hashtags:
+    - "#政治"
+    - "#時事問題"
+    - "#解説"
+    - "#ニュース"
+    - "#日本"
+    - "#ショート"
+    - "#政治解説"
+    - "#AI解説"
+    - "#AI生成"
+
+generation:
+  voice: nova
+  speed: 1.0
+  image_quality: medium
+  image_style_prefix: "Professional news-style vertical composition, clean layout, serious tone, muted color palette with accent colors, high contrast, subtle dramatic lighting. "
+  max_duration: 90.0
+
+content:
+  tone: "です・ます調、客観的・中立"
+  target_audience: "政治に興味のある20-40代、ニュースを手軽に知りたい層"
+  guidelines:
+    - "偏向・扇動的表現の禁止"
+    - "特定の政党・政治家を支持/批判する立場を取らない"
+    - "読点2つ以内/文"
+    - "合計90秒以内（約525文字）"
+    - "事実ベースの解説を心がける"
+    - "専門用語は平易な言葉で言い換える"
+    - "視聴者の「なぜ？」に答える構成にする"
+    - "冒頭3秒で話題を提示し興味を引く"
+
+credentials:
+  env_prefix: TIKTOK_POLITICS
+  required_vars:
+    - CLIENT_KEY
+    - CLIENT_SECRET

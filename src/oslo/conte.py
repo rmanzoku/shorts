@@ -25,8 +25,9 @@ def is_conte_format(text: str) -> bool:
     return bool(_SCENE_HEADER_PATTERN.search(text))
 
 
-def parse_conte(text: str) -> list[Scene]:
+def parse_conte(text: str, image_style_prefix: str | None = None) -> list[Scene]:
     """Parse conte markdown and return a list of Scene objects."""
+    style_prefix = image_style_prefix or IMAGE_STYLE_PREFIX
     matches = list(_SCENE_HEADER_PATTERN.finditer(text))
     if not matches:
         raise ValueError("No scenes found in conte markdown")
@@ -41,9 +42,9 @@ def parse_conte(text: str) -> list[Scene]:
         visual_text = _extract_visual(block)
 
         if visual_text:
-            image_prompt = f"{IMAGE_STYLE_PREFIX}{visual_text} {_NO_TEXT_SUFFIX}"
+            image_prompt = f"{style_prefix}{visual_text} {_NO_TEXT_SUFFIX}"
         else:
-            image_prompt = generate_image_prompt(narration_text)
+            image_prompt = generate_image_prompt(narration_text, image_style_prefix)
 
         scenes.append(
             Scene(

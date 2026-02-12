@@ -87,3 +87,24 @@ def test_parse_conte_no_scenes():
     text = "**ナレーション**: シーンヘッダーがありません。"
     with pytest.raises(ValueError, match="No scenes found in conte markdown"):
         parse_conte(text)
+
+
+def test_parse_conte_custom_style_prefix():
+    custom_prefix = "Dark, dramatic, professional. "
+    text = """## シーン 1
+**映像**: 国会議事堂
+**ナレーション**: 本日の議題を解説します。
+"""
+    scene = parse_conte(text, image_style_prefix=custom_prefix)[0]
+    assert scene.image_prompt.startswith(custom_prefix)
+    assert "国会議事堂" in scene.image_prompt
+    assert not scene.image_prompt.startswith(IMAGE_STYLE_PREFIX)
+
+
+def test_parse_conte_custom_style_prefix_fallback():
+    custom_prefix = "Custom style. "
+    text = """## シーン 1
+**ナレーション**: 映像指定なしのカスタムスタイル。
+"""
+    scene = parse_conte(text, image_style_prefix=custom_prefix)[0]
+    assert scene.image_prompt.startswith(custom_prefix)

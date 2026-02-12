@@ -35,12 +35,16 @@ def generate_video(
         if input_file.suffix.lower() == ".md" or is_conte_format(text):
             if verbose:
                 click.echo("Parsing conte...")
-            scenes = parse_conte(text)
+            scenes = parse_conte(text, image_style_prefix=config.image_style_prefix)
             title = parse_conte_title(text)
         else:
             if verbose:
                 click.echo("Splitting text into scenes...")
-            scenes = split_into_scenes(text, max_duration=config.video.max_duration)
+            scenes = split_into_scenes(
+                text,
+                max_duration=config.video.max_duration,
+                image_style_prefix=config.image_style_prefix,
+            )
         if verbose:
             click.echo(f"  Created {len(scenes)} scenes")
 
