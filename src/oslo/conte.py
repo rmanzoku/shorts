@@ -16,6 +16,10 @@ _STAT_PATTERN = re.compile(
     r"\*\*数字\*\*\s*[:：]\s*(.+?)(?=\n\*\*|$)",
     re.DOTALL,
 )
+_LIBRARY_IMAGE_PATTERN = re.compile(
+    r"\*\*画像\*\*\s*[:：]\s*(.+?)(?=\n\*\*|$)",
+    re.DOTALL,
+)
 _TITLE_PATTERN = re.compile(r"^#\s+(.+)$", re.MULTILINE)
 _NO_TEXT_SUFFIX = "Do not include any text, words, or letters in the image."
 
@@ -55,10 +59,17 @@ def parse_conte(text: str, image_style_prefix: str | None = None) -> list[Scene]
         narration_text = _extract_required_narration(block, i + 1)
         visual_text = _extract_visual(block)
         stat_overlay = _extract_stat_overlay(block)
+        library_image = _extract_library_image(block)
 
         if stat_overlay is None:
             warnings.warn(
                 f"**数字** field missing in scene {i + 1}",
+                stacklevel=2,
+            )
+
+        if library_image and visual_text:
+            warnings.warn(
+                f"Scene {i + 1}: **画像** overrides **映像** (AI generation skipped)",
                 stacklevel=2,
             )
 
@@ -73,6 +84,7 @@ def parse_conte(text: str, image_style_prefix: str | None = None) -> list[Scene]
                 narration_text=narration_text,
                 image_prompt=image_prompt,
                 stat_overlay=stat_overlay,
+                library_image=library_image,
             )
         )
 
@@ -98,6 +110,15 @@ def _extract_visual(block: str) -> str | None:
         return None
     visual_text = match.group(1).strip()
     return visual_text or None
+
+
+def _extract_library_image(block: str) -> str | None:
+    """Extract library image slug from a scene block."""
+    match = _LIBRARY_IMAGE_PATTERN.search(block)
+    if not match:
+        return None
+    slug = match.group(1).strip()
+    return slug or None
 
 
 def _extract_required_narration(block: str, scene_number: int) -> str:

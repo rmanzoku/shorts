@@ -1,6 +1,7 @@
 """OpenAI image generation client."""
 
 import base64
+import math
 from io import BytesIO
 from pathlib import Path
 
@@ -39,15 +40,50 @@ class ImageGenerator:
         image.save(str(output_path), format="PNG")
         return output_path
 
+    def copy_and_resize_library_image(self, slug: str, output_path: Path) -> Path:
+        """Copy a library image, resizing to video dimensions with cover+center crop."""
+        from oslo.library import resolve_image_path
+
+        source = resolve_image_path(slug)
+        image = Image.open(str(source)).convert("RGB")
+
+        target_w = self.video_config.width
+        target_h = self.video_config.height
+        img_w, img_h = image.size
+
+        # Cover: scale so smallest dimension fills target (ceil to avoid 1px shortage)
+        scale = max(target_w / img_w, target_h / img_h)
+        new_w = math.ceil(img_w * scale)
+        new_h = math.ceil(img_h * scale)
+        image = image.resize((new_w, new_h), Image.LANCZOS)
+
+        # Center crop
+        left = (new_w - target_w) // 2
+        top = (new_h - target_h) // 2
+        image = image.crop((left, top, left + target_w, top + target_h))
+
+        image.save(str(output_path), format="PNG")
+        return output_path
+
     def generate_all_scenes(
         self, scenes: list[Scene], temp_dir: Path, verbose: bool = False
     ) -> list[Path]:
         """Generate images for all scenes. Returns list of image file paths."""
         image_paths = []
         for scene in scenes:
-            if verbose:
-                click.echo(f"  Generating image for scene {scene.index + 1}/{len(scenes)}...")
             image_path = temp_dir / f"scene_{scene.index:03d}.png"
-            self.generate_image(scene.image_prompt, image_path)
+            if scene.library_image:
+                if verbose:
+                    click.echo(
+                        f"  Using library image '{scene.library_image}' "
+                        f"for scene {scene.index + 1}/{len(scenes)}..."
+                    )
+                self.copy_and_resize_library_image(scene.library_image, image_path)
+            else:
+                if verbose:
+                    click.echo(
+                        f"  Generating image for scene {scene.index + 1}/{len(scenes)}..."
+                    )
+                self.generate_image(scene.image_prompt, image_path)
             image_paths.append(image_path)
         return image_paths

@@ -14,14 +14,18 @@
 contes/               # コンテ（Markdown）— Git 管理、連番命名
   001_soka-gakkai.md
   002_next-topic.md
+images/               # 画像ライブラリ — Git 管理、連番命名
+  001_kokkai.png      # 画像ファイル（PNG/JPG/WEBP）
+  001_kokkai.yml      # YAML サイドカーメタデータ
 output/               # 生成物（MP4・中間ファイル）— Git 除外
 src/oslo/
   cli.py            # Click CLI エントリポイント
   config.py         # AppConfig / VideoConfig / TTSConfig / ImageGenConfig
   conte.py          # コンテ（Markdown）パーサー
+  library.py        # 画像ライブラリ管理（メタデータ・検索・Vision API 分析）
   text_processor.py # テキスト解析・シーン分割・字幕チャンキング・画像プロンプト
   tts.py            # OpenAI TTS クライアント
-  image_gen.py      # OpenAI 画像生成クライアント
+  image_gen.py      # OpenAI 画像生成クライアント（ライブラリ画像対応）
   subtitles.py      # SRT 字幕生成（CJK 対応・文字数重み付きタイミング）
   composer.py       # MoviePy 動画合成（Ken Burns・crossfade・字幕オーバーレイ）
   pipeline.py       # パイプラインオーケストレーター（コンテ/テキスト両対応）
@@ -35,7 +39,8 @@ src/oslo/
 ## コスト意識
 
 - `oslo generate` は API 呼び出し前に確認プロンプトを出す（`--yes` でスキップ）
-- 1回の生成: TTS × シーン数 + 画像生成 × シーン数
+- 1回の生成: TTS × シーン数 + 画像生成 × シーン数（ライブラリ画像使用時はその分削減）
+- `oslo library add` は GPT-4o vision API を呼ぶ（`--skip-analysis` でスキップ可能）
 - 字幕・合成の調整のみなら `--keep-temp` で中間ファイルを保持し、再合成スクリプトで対応
 
 ## 日本語テキスト処理の注意点
@@ -76,16 +81,33 @@ src/oslo/
 # タイトル
 
 ## シーン 1
-**映像**: 映像の説明（AI画像生成の指示になる）
+**画像**: 001_kokkai
 **ナレーション**: TTS読み上げ・字幕の元テキスト
 
 ## シーン 2
-**映像**: ...
+**映像**: 映像の説明（AI画像生成の指示になる）
 **ナレーション**: ...
 ```
 
+- `**画像**`: ライブラリ画像のスラッグを指定（API コールなし）
+- `**映像**`: AI 画像生成の指示（DALL-E で生成）
+- `**画像**` と `**映像**` 両方ある場合は `**画像**` が優先
 - `**映像**` がない場合はナレーションから自動生成（フォールバック）
 - 映像指示にはスタイルプレフィックスと "Do not include any text" が自動付与される
+
+### 画像ライブラリ
+
+`images/` ディレクトリで事前準備した画像を管理。命名規則: `NNN_slug.{拡張子}`
+
+```bash
+oslo library add <画像パス>              # 追加（GPT-4o vision で自動タグ付け）
+oslo library add <画像パス> --skip-analysis  # 分析スキップ
+oslo library list                        # 一覧
+oslo library list --tag 政治             # タグフィルタ
+oslo library show <slug>                 # 詳細表示
+```
+
+YAML サイドカー（`NNN_slug.yml`）にフリータグ・説明文・出典を格納。`/conte` ワークフローで AI がライブラリから適切な画像を選択し `**画像**` フィールドに自動提案する。
 
 ### 台本ガイドライン
 

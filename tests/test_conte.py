@@ -169,3 +169,38 @@ def test_parse_conte_stat_overlay_with_full_width_colon():
 """
     scene = parse_conte(text)[0]
     assert scene.stat_overlay == "100万人"
+
+
+def test_parse_conte_library_image():
+    """**画像**: slug should set library_image on Scene."""
+    text = """## シーン 1
+**画像**: 001_kokkai
+**ナレーション**: テスト用のナレーションです。
+**数字**: 100
+"""
+    scene = parse_conte(text)[0]
+    assert scene.library_image == "001_kokkai"
+
+
+def test_parse_conte_library_image_overrides_visual():
+    """When both **画像** and **映像** are present, library_image takes priority with warning."""
+    text = """## シーン 1
+**画像**: 001_kokkai
+**映像**: 東京タワーの夜景
+**ナレーション**: テスト用のナレーションです。
+**数字**: 100
+"""
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        scene = parse_conte(text)[0]
+        assert scene.library_image == "001_kokkai"
+        assert "東京タワーの夜景" in scene.image_prompt
+        override_warnings = [x for x in w if "**画像** overrides **映像**" in str(x.message)]
+        assert len(override_warnings) == 1
+
+
+def test_parse_conte_no_library_image_backward_compat():
+    """Existing contes without **画像** should have library_image=None."""
+    scenes = parse_conte(TEST_CONTE_MARKDOWN)
+    for scene in scenes:
+        assert scene.library_image is None

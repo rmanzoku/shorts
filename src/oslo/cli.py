@@ -244,3 +244,99 @@ def profile_validate(name):
     else:
         missing = [v for v, ok in cred_status.items() if not ok]
         click.echo(f"Missing {len(missing)} credential(s). Add them to .env")
+
+
+@main.group()
+def library():
+    """画像ライブラリを管理する。"""
+
+
+@library.command("add")
+@click.argument("image_path", type=click.Path(exists=True, path_type=Path))
+@click.option("--slug", type=str, default=None, help="カスタムスラッグ（省略時は自動連番）")
+@click.option("--source", type=str, default="", help="出典・ソース")
+@click.option(
+    "--skip-analysis",
+    is_flag=True,
+    default=False,
+    help="GPT-4o vision による自動メタデータ抽出をスキップ",
+)
+def library_add(image_path, slug, source, skip_analysis):
+    """画像をライブラリに追加する。"""
+    from oslo.library import add_image, analyze_image
+
+    tags = ()
+    description = ""
+
+    if not skip_analysis:
+        import json
+        import os
+
+        import openai
+        from dotenv import load_dotenv
+
+        load_dotenv()
+        api_key = os.environ.get("OPENAI_API_KEY", "")
+        if not api_key:
+            raise click.ClickException(
+                "OPENAI_API_KEY が必要です（--skip-analysis でスキップ可能）"
+            )
+
+        click.echo("画像を分析中...")
+        try:
+            result = analyze_image(api_key, image_path)
+            tags = tuple(result.get("tags", []))
+            description = result.get("description", "")
+            click.echo(f"  タグ: {', '.join(tags)}")
+            click.echo(f"  説明: {description}")
+        except (
+            json.JSONDecodeError, openai.APIError, openai.APIConnectionError,
+        ) as e:
+            click.echo(f"  分析に失敗しました: {e}")
+            click.echo("  空のメタデータで続行します。")
+
+    meta = add_image(
+        image_path,
+        slug=slug,
+        tags=tags,
+        description=description,
+        source=source,
+    )
+    click.echo(f"追加しました: {meta.slug} ({meta.path})")
+
+
+@library.command("list")
+@click.option("--tag", type=str, default=None, help="タグでフィルタ")
+def library_list(tag):
+    """ライブラリの画像一覧を表示する。"""
+    from oslo.library import list_images, search_images
+
+    if tag:
+        images = search_images([tag])
+    else:
+        images = list_images()
+
+    if not images:
+        click.echo("画像がありません。oslo library add で追加してください。")
+        return
+
+    click.echo(f"Images ({len(images)}):")
+    for img in images:
+        tags_str = ", ".join(img.tags) if img.tags else ""
+        desc_str = img.description[:40] if img.description else ""
+        click.echo(f"  {img.slug:<20} [{tags_str}]  {desc_str}")
+
+
+@library.command("show")
+@click.argument("slug")
+def library_show(slug):
+    """画像のメタデータを表示する。"""
+    from oslo.library import load_image_meta
+
+    meta = load_image_meta(slug)
+    click.echo(f"Image: {meta.slug}")
+    click.echo(f"  File:        {meta.path}")
+    click.echo(f"  Tags:        {', '.join(meta.tags)}")
+    click.echo(f"  Description: {meta.description}")
+    click.echo(f"  Source:      {meta.source}")
+    click.echo(f"  Added:       {meta.added}")

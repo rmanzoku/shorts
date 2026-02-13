@@ -62,8 +62,14 @@ def generate_video(
 
         # Confirm before API calls
         if not skip_confirm:
+            ai_image_count = sum(1 for s in scenes if not s.library_image)
+            lib_image_count = sum(1 for s in scenes if s.library_image)
             click.echo(f"\n  Scenes: {len(scenes)}")
-            click.echo(f"  API calls: {len(scenes)} TTS + {len(scenes)} image generation")
+            click.echo(
+                f"  API calls: {len(scenes)} TTS + {ai_image_count} image generation"
+            )
+            if lib_image_count:
+                click.echo(f"  Library images: {lib_image_count} (no API cost)")
             if not click.confirm("  Proceed with API calls?", default=True):
                 raise click.Abort()
 
