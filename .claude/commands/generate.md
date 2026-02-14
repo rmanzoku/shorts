@@ -65,6 +65,25 @@ compose_video(images, list(audios), srt_path, Path("<output.mp4>"), VideoConfig(
 
 生成後に確認すること:
 - ファイルサイズとフォーマット: `ls -lh <output.mp4>`
-- 字幕が画面内に収まっているか
+- **動画尺が60〜90秒の範囲内か**: `ffprobe -v quiet -print_format json -show_format <output.mp4>` で duration を確認
+- **先頭フレームがTikTokサムネとして適切か**: 背景画像が表示されているか（黒画面でないか確認）
+- 字幕が画面下部に表示され、タイトル・数字オーバーレイと重なっていないか
 - 音声と映像の長さが一致しているか
 - 語の途中で字幕が切れていないか
+
+### 目次タイムスタンプの更新
+
+生成後、各シーンの実時間を取得してコンテの `## 説明` セクションの目次タイムスタンプを正確な値に更新する:
+
+```bash
+.venv/bin/python3 -c "
+from pydub import AudioSegment; from pathlib import Path
+tmp = Path('<中間ファイルディレクトリ>')
+c = 0.0
+for i in range(<シーン数>):
+    d = AudioSegment.from_mp3(str(tmp / f'scene_{i:03d}.mp3')).duration_seconds
+    print(f'Scene {i+1}: {int(c)//60}:{int(c)%60:02d} ({d:.1f}s)')
+    c += d
+print(f'Total: {c:.1f}s')
+"
+```

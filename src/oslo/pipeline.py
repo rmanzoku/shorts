@@ -102,7 +102,7 @@ def generate_video(
             output_path=output_file,
             config=config.video,
             title=title,
-            hook_text=title,
+            hook_text=None,
             stat_overlays=stat_overlays,
         )
 
