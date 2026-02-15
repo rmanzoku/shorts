@@ -39,7 +39,13 @@ def main():
     "--image-quality",
     type=click.Choice(["low", "medium", "high"]),
     default=None,
-    help="Image generation quality",
+    help="Image generation quality (OpenAI only)",
+)
+@click.option(
+    "--image-provider",
+    type=click.Choice(["openai", "gemini"]),
+    default=None,
+    help="Image generation provider (default: gemini)",
 )
 @click.option(
     "--keep-temp",
@@ -57,8 +63,8 @@ def main():
     help="Profile name for generation defaults (e.g., tiktok-politics)",
 )
 def generate(
-    input_file, output, voice, speed, max_duration, image_quality, keep_temp, verbose, yes,
-    profile_name,
+    input_file, output, voice, speed, max_duration, image_quality, image_provider,
+    keep_temp, verbose, yes, profile_name,
 ):
     """Generate a short video from a text file."""
     from oslo.pipeline import generate_video
@@ -80,6 +86,7 @@ def generate(
         speed=speed,
         max_duration=max_duration,
         image_quality=image_quality,
+        image_provider=image_provider,
         profile_defaults=profile_defaults,
     )
 

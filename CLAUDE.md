@@ -4,7 +4,7 @@
 
 ## 基本原則
 
-- OpenAI API はコストが発生する。実行前に必ずユーザーに確認する
+- OpenAI API / Google Gemini API はコストが発生する。実行前に必ずユーザーに確認する
 - 中間ファイル（音声・画像・SRT）が残っていれば再合成で API コールを回避できる
 - 日本語テキストの扱いに注意。CJK 検出・助詞ベース分割・文字数推定が必要
 
@@ -25,7 +25,7 @@ src/oslo/
   library.py        # 画像ライブラリ管理（メタデータ・検索・Vision API 分析）
   text_processor.py # テキスト解析・シーン分割・字幕チャンキング・画像プロンプト
   tts.py            # OpenAI TTS クライアント
-  image_gen.py      # OpenAI 画像生成クライアント（ライブラリ画像対応）
+  image_gen.py      # 画像生成クライアント（Gemini/OpenAI 対応・ライブラリ画像対応）
   subtitles.py      # SRT 字幕生成（CJK 対応・文字数重み付きタイミング）
   composer.py       # MoviePy 動画合成（Ken Burns・crossfade・字幕オーバーレイ）
   pipeline.py       # パイプラインオーケストレーター（コンテ/テキスト両対応）
@@ -40,6 +40,8 @@ src/oslo/
 
 - `oslo generate` は API 呼び出し前に確認プロンプトを出す（`--yes` でスキップ）
 - 1回の生成: TTS × シーン数 + 画像生成 × シーン数（ライブラリ画像使用時はその分削減）
+- 画像生成プロバイダー: Gemini（デフォルト）/ OpenAI（`--image-provider openai` で切替）
+- 環境変数: `OPENAI_API_KEY`（TTS 必須）+ `GOOGLE_API_KEY`（Gemini 画像生成時必須）
 - `oslo library add` は GPT-4o vision API を呼ぶ（`--skip-analysis` でスキップ可能）
 - 字幕・合成の調整のみなら `--keep-temp` で中間ファイルを保持し、再合成スクリプトで対応
 
@@ -92,7 +94,7 @@ src/oslo/
 ```
 
 - `**画像**`: ライブラリ画像のスラッグを指定（API コールなし）
-- `**映像**`: AI 画像生成の指示（DALL-E で生成）
+- `**映像**`: AI 画像生成の指示（Gemini Nano Banana / OpenAI で生成）
 - `**画像**` と `**映像**` 両方ある場合は `**画像**` が優先
 - `**映像**` がない場合はナレーションから自動生成（フォールバック）
 - 映像指示にはスタイルプレフィックスと "Do not include any text" が自動付与される

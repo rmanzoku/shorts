@@ -82,7 +82,12 @@ def generate_video(
         # Stage 3: Generate background images
         if verbose:
             click.echo("Generating background images...")
-        image_gen = ImageGenerator(config.openai_api_key, config.image_gen, config.video)
+        image_gen = ImageGenerator(
+            openai_api_key=config.openai_api_key,
+            image_config=config.image_gen,
+            video_config=config.video,
+            google_api_key=config.google_api_key,
+        )
         image_paths = image_gen.generate_all_scenes(scenes, temp_dir, verbose=verbose)
 
         # Stage 4: Generate subtitles
