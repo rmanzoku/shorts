@@ -4,7 +4,7 @@ import warnings
 
 import pytest
 
-from oslo.conte import is_conte_format, parse_conte
+from oslo.conte import is_conte_format, parse_conte, parse_conte_hook
 from oslo.text_processor import IMAGE_STYLE_PREFIX, Scene, generate_image_prompt
 
 TEST_CONTE_MARKDOWN = """# テストタイトル
@@ -204,3 +204,43 @@ def test_parse_conte_no_library_image_backward_compat():
     scenes = parse_conte(TEST_CONTE_MARKDOWN)
     for scene in scenes:
         assert scene.library_image is None
+
+
+class TestParseConteHook:
+    """Tests for parse_conte_hook function."""
+
+    def test_hook_extracted(self):
+        text = """# タイトル
+
+**フック**: 年4兆円が非課税？
+
+## シーン 1
+**ナレーション**: テストです。
+"""
+        assert parse_conte_hook(text) == "年4兆円が非課税？"
+
+    def test_hook_with_full_width_colon(self):
+        text = """# タイトル
+
+**フック**： 手取り、実は○○万円
+
+## シーン 1
+**ナレーション**: テストです。
+"""
+        assert parse_conte_hook(text) == "手取り、実は○○万円"
+
+    def test_hook_missing_returns_none(self):
+        assert parse_conte_hook(TEST_CONTE_MARKDOWN) is None
+
+    def test_hook_not_confused_with_scene_fields(self):
+        """Hook-like text inside a scene block should not be extracted."""
+        text = """# タイトル
+
+## シーン 1
+**フック**: シーン内のフック
+**ナレーション**: テストです。
+"""
+        assert parse_conte_hook(text) is None
+
+    def test_hook_plain_text_returns_none(self):
+        assert parse_conte_hook("これは通常のテキストです。") is None
