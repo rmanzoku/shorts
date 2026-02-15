@@ -8,7 +8,7 @@ import click
 
 from oslo.composer import compose_video
 from oslo.config import AppConfig
-from oslo.conte import is_conte_format, parse_conte, parse_conte_title
+from oslo.conte import is_conte_format, parse_conte, parse_conte_hook, parse_conte_title
 from oslo.image_gen import ImageGenerator
 from oslo.readings import apply_readings, load_readings
 from oslo.subtitles import generate_subtitles, write_srt
@@ -30,6 +30,7 @@ def generate_video(
         raise click.ClickException("Input file is empty")
 
     title = None
+    hook_text = None
     temp_dir = Path(tempfile.mkdtemp(prefix="oslo_"))
     try:
         # Stage 1: Parse conte or split text into scenes
@@ -38,6 +39,7 @@ def generate_video(
                 click.echo("Parsing conte...")
             scenes = parse_conte(text, image_style_prefix=config.image_style_prefix)
             title = parse_conte_title(text)
+            hook_text = parse_conte_hook(text)
         else:
             if verbose:
                 click.echo("Splitting text into scenes...")
@@ -107,7 +109,7 @@ def generate_video(
             output_path=output_file,
             config=config.video,
             title=title,
-            hook_text=None,
+            hook_text=hook_text,
             stat_overlays=stat_overlays,
         )
 

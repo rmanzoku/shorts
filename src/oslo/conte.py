@@ -21,7 +21,19 @@ _LIBRARY_IMAGE_PATTERN = re.compile(
     re.DOTALL,
 )
 _TITLE_PATTERN = re.compile(r"^#\s+(.+)$", re.MULTILINE)
+_HOOK_PATTERN = re.compile(
+    r"\*\*フック\*\*\s*[:：]\s*(.+?)(?=\n\*\*|\n##|$)",
+    re.DOTALL,
+)
 _NO_TEXT_SUFFIX = "Do not include any text, words, or letters in the image."
+
+
+def parse_conte_hook(text: str) -> str | None:
+    """Extract hook text from conte (before first scene header)."""
+    first_scene = _SCENE_HEADER_PATTERN.search(text)
+    search_area = text[: first_scene.start()] if first_scene else text
+    match = _HOOK_PATTERN.search(search_area)
+    return match.group(1).strip() if match else None
 
 
 def parse_conte_title(text: str) -> str | None:

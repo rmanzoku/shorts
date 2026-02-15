@@ -21,13 +21,13 @@ defaults:
   is_aigc: true
   brand_content_toggle: false
   hashtags:
-    - "#政治"
-    - "#時事問題"
     - "#解説"
     - "#ニュース"
     - "#日本"
     - "#ショート"
-    - "#政治解説"
+    - "#雑学"
+    - "#知識"
+    - "#お金の話"
     - "#AI解説"
     - "#AI生成"
 
