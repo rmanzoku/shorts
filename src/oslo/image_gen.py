@@ -1,4 +1,4 @@
-"""OpenAI image generation client."""
+"""Image generation client supporting OpenAI and Google Gemini (Nano Banana)."""
 
 import base64
 import math
@@ -6,7 +6,6 @@ from io import BytesIO
 from pathlib import Path
 
 import click
-from openai import OpenAI
 from PIL import Image
 
 from oslo.config import ImageGenConfig, VideoConfig
@@ -15,15 +14,45 @@ from oslo.utils import retry_on_rate_limit
 
 
 class ImageGenerator:
-    def __init__(self, api_key: str, config: ImageGenConfig, video_config: VideoConfig):
-        self.client = OpenAI(api_key=api_key)
-        self.config = config
+    def __init__(
+        self,
+        openai_api_key: str,
+        image_config: ImageGenConfig,
+        video_config: VideoConfig,
+        google_api_key: str = "",
+    ):
+        self.config = image_config
         self.video_config = video_config
+        self._openai_api_key = openai_api_key
+        self._google_api_key = google_api_key
+        self._openai_client = None
+        self._gemini_client = None
+
+    def _get_openai_client(self):
+        if self._openai_client is None:
+            from openai import OpenAI
+
+            self._openai_client = OpenAI(api_key=self._openai_api_key)
+        return self._openai_client
+
+    def _get_gemini_client(self):
+        if self._gemini_client is None:
+            from google import genai
+
+            self._gemini_client = genai.Client(api_key=self._google_api_key)
+        return self._gemini_client
 
     @retry_on_rate_limit()
     def generate_image(self, prompt: str, output_path: Path) -> Path:
         """Generate a single image from a prompt, resize, and save to disk."""
-        result = self.client.images.generate(
+        if self.config.provider == "gemini":
+            return self._generate_gemini(prompt, output_path)
+        return self._generate_openai(prompt, output_path)
+
+    def _generate_openai(self, prompt: str, output_path: Path) -> Path:
+        """Generate image using OpenAI gpt-image-1."""
+        client = self._get_openai_client()
+        result = client.images.generate(
             model=self.config.model,
             prompt=prompt,
             size=self.config.size,
@@ -33,7 +62,39 @@ class ImageGenerator:
         image_bytes = base64.b64decode(image_base64)
         image = Image.open(BytesIO(image_bytes))
 
-        # Resize to exact video dimensions
+        image = image.resize(
+            (self.video_config.width, self.video_config.height), Image.LANCZOS
+        )
+        image.save(str(output_path), format="PNG")
+        return output_path
+
+    def _generate_gemini(self, prompt: str, output_path: Path) -> Path:
+        """Generate image using Google Gemini (Nano Banana)."""
+        from google.genai import types
+
+        client = self._get_gemini_client()
+        response = client.models.generate_content(
+            model=self.config.model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_modalities=["IMAGE"],
+                image_config=types.ImageConfig(
+                    aspect_ratio=self.config.aspect_ratio,
+                ),
+            ),
+        )
+
+        # Extract image from response parts
+        image = None
+        for part in response.candidates[0].content.parts:
+            if part.inline_data is not None:
+                image_bytes = part.inline_data.data
+                image = Image.open(BytesIO(image_bytes))
+                break
+
+        if image is None:
+            raise RuntimeError("Gemini API returned no image data")
+
         image = image.resize(
             (self.video_config.width, self.video_config.height), Image.LANCZOS
         )
@@ -81,8 +142,10 @@ class ImageGenerator:
                 self.copy_and_resize_library_image(scene.library_image, image_path)
             else:
                 if verbose:
+                    provider = self.config.provider
                     click.echo(
-                        f"  Generating image for scene {scene.index + 1}/{len(scenes)}..."
+                        f"  Generating image ({provider}) "
+                        f"for scene {scene.index + 1}/{len(scenes)}..."
                     )
                 self.generate_image(scene.image_prompt, image_path)
             image_paths.append(image_path)

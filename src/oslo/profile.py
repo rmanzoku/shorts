@@ -52,6 +52,7 @@ class GenerationDefaults:
     speed: float | None = None
     image_quality: str | None = None
     image_style_prefix: str | None = None
+    image_provider: str | None = None
     max_duration: float | None = None
 
 
@@ -161,6 +162,7 @@ def load_profile(name: str, profiles_dir: Path | None = None) -> Profile:
         speed=gen_data.get("speed"),
         image_quality=gen_data.get("image_quality"),
         image_style_prefix=gen_data.get("image_style_prefix"),
+        image_provider=gen_data.get("image_provider"),
         max_duration=gen_data.get("max_duration"),
     )
 
@@ -213,7 +215,10 @@ def save_profile(profile: Profile, profiles_dir: Path | None = None) -> Path:
 
     # Serialize generation defaults (only non-None values)
     gen_dict = {}
-    for fld in ("voice", "speed", "image_quality", "image_style_prefix", "max_duration"):
+    for fld in (
+        "voice", "speed", "image_quality", "image_style_prefix", "image_provider",
+        "max_duration",
+    ):
         val = getattr(profile.generation, fld)
         if val is not None:
             gen_dict[fld] = val
